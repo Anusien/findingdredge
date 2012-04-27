@@ -63,7 +63,7 @@ def deckeval(deck):
                 else:
                     deckcopy = deck[0:i] + deck[i+1:]
             pulledsofarcopy += deck[i]
-            pulledsofarcopy = string.join(((sorted(list(pulledsofarcopy)))),"")
+            pulledsofarcopy = string.join(((sorted(pulledsofarcopy))),"")
             total += pullcard(deckcopy, handsize, pulledsofarcopy)
         return total
 
