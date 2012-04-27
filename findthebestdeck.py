@@ -41,6 +41,49 @@ def decks(mini = 12, maxi = 14):
                                             yield ("A" * a + "B" * b + "C" * c + "D" * d + "E" * e + "F" * f + "G" * g + "H" * h + "I" * i)
 
 def deckeval(deck):
+    def pullcard(deck,handsize,pulledsofar):
+        total = 0
+        hands = ("AABC", "ABCH", "ACEH", "ACFH", "ABDH", "ADEH", "ADFH", "ADGH", "ABBH", "ABEH", "ABFH", "ABGH", "ABEH", "AEEH", "AEFH", "AEGH", "AEGG", "AEEG", "AEFG")
+        if (handsize == pulledsofar.__len__()):
+            handhash = dict()
+            for i in pulledsofar:
+                if handhash.has_key(i):
+                    handhash[i] += 1
+                else:
+                    handhash[i] = 1
+            for i in hands:
+                neededhash = dict()
+                for j in i:
+                    if neededhash.has_key(j):
+                        neededhash[j] += 1
+                    else:
+                        neededhash[j] = 1
+                good = 1
+                for j in neededhash.keys():
+                    if handhash.has_key(j):
+                        if handhash[j] < neededhash[j]:
+                            good = 0
+                    else:
+                        good = 0
+                if good == 1:
+                    return 1
+            return 0
+        for i in range(0, deck.__len__()):
+            pulledsofarcopy = pulledsofar
+            if i == 0:
+                deckcopy = deck[1:]
+            else:
+                if i == deck.__len__() - 1:
+                    deckcopy = deck[:deck.__len__() - 1]
+                else:
+                    deckcopy = deck[0:i] + deck[i+1:]
+            pulledsofarcopy += deck[i]
+            pulledsofarcopy = string.join(((sorted(list(pulledsofarcopy)))),"")
+            total += pullcard(deckcopy, handsize, pulledsofarcopy)
+        return total
+
+    pullcard = Memoize(pullcard)
+
     d7 = pullcard(deck,7,"")
     d6 = pullcard(deck,6,"")
     d5 = pullcard(deck,5,"")
@@ -52,49 +95,6 @@ def deckeval(deck):
     oddsofgood4 = (d4 * 1.0 / ((decksize) * (decksize - 1) * (decksize - 2) * (decksize - 3)))
     return oddsofgood7 + (1 - oddsofgood7) * oddsofgood6 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6))) * oddsofgood5 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6))) * oddsofgood5))) * oddsofgood4
 
-
-def pullcard(deck,handsize,pulledsofar):
-    total = 0
-    hands = ("AABC", "ABCH", "ACEH", "ACFH", "ABDH", "ADEH", "ADFH", "ADGH", "ABBH", "ABEH", "ABFH", "ABGH", "ABEH", "AEEH", "AEFH", "AEGH", "AEGG", "AEEG", "AEFG")
-    if (handsize == pulledsofar.__len__()):
-        handhash = dict()
-        for i in pulledsofar:
-            if handhash.has_key(i):
-                handhash[i] += 1
-            else:
-                handhash[i] = 1
-        for i in hands:
-            neededhash = dict()
-            for j in i:
-                if neededhash.has_key(j):
-                    neededhash[j] += 1
-                else:
-                    neededhash[j] = 1
-            good = 1
-            for j in neededhash.keys():
-                if handhash.has_key(j):
-                    if handhash[j] < neededhash[j]:
-                        good = 0
-                else:
-                    good = 0
-            if good == 1:
-                return 1
-        return 0
-    for i in range(0, deck.__len__()):
-        pulledsofarcopy = pulledsofar
-        if i == 0:
-            deckcopy = deck[1:]
-        else:
-            if i == deck.__len__() - 1:
-                deckcopy = deck[:deck.__len__() - 1]
-            else:
-                deckcopy = deck[0:i] + deck[i+1:]
-        pulledsofarcopy += deck[i]
-        pulledsofarcopy = string.join(((sorted(list(pulledsofarcopy)))),"")
-        total += pullcard(deckcopy, handsize, pulledsofarcopy)
-    return total
-
-pullcard = Memoize(pullcard)
 
 conn = dict()
 c = dict()
