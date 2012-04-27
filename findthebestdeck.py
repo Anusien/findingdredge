@@ -45,25 +45,10 @@ def deckeval(deck):
         total = 0
         hands = ("AABC", "ABCH", "ACEH", "ACFH", "ABDH", "ADEH", "ADFH", "ADGH", "ABBH", "ABEH", "ABFH", "ABGH", "ABEH", "AEEH", "AEFH", "AEGH", "AEGG", "AEEG", "AEFG")
         if (handsize == pulledsofar.__len__()):
-            handhash = dict()
-            for i in pulledsofar:
-                if handhash.has_key(i):
-                    handhash[i] += 1
-                else:
-                    handhash[i] = 1
-            for i in hands:
-                neededhash = dict()
-                for j in i:
-                    if neededhash.has_key(j):
-                        neededhash[j] += 1
-                    else:
-                        neededhash[j] = 1
+            for winninghand in hands:
                 good = 1
-                for j in neededhash.keys():
-                    if handhash.has_key(j):
-                        if handhash[j] < neededhash[j]:
-                            good = 0
-                    else:
+                for card in winninghand:
+                    if pulledsofar.count(card) < winninghand.count(card):
                         good = 0
                 if good == 1:
                     return 1
@@ -94,7 +79,6 @@ def deckeval(deck):
     oddsofgood5 = (d5 * 1.0 / ((decksize) * (decksize - 1) * (decksize - 2) * (decksize - 3) * (decksize - 4)))
     oddsofgood4 = (d4 * 1.0 / ((decksize) * (decksize - 1) * (decksize - 2) * (decksize - 3)))
     return oddsofgood7 + (1 - oddsofgood7) * oddsofgood6 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6))) * oddsofgood5 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6))) * oddsofgood5))) * oddsofgood4
-
 
 conn = dict()
 c = dict()
