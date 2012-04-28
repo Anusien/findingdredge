@@ -42,6 +42,5 @@ while (1):
          deck.count("I"),
          perc])
     count += 1
-    if (count % 100 == 0):
-        conn.commit()
+    conn.commit()
 conn.commit()
