@@ -98,7 +98,7 @@ for deck in decks(mini, maxi):
     count += 1
     icount = deck.count("I")
     perc = deckeval(deck)
-    print count,deck,perc
+    print deck,perc
     c[icount].execute('''INSERT INTO decks VALUES (?,?,?,?,?,?,?,?,?,?)''',
         [deck.count("A"),
          deck.count("B"),
