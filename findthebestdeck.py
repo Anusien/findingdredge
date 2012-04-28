@@ -1,6 +1,11 @@
+import commands
+import shutil
+import time
+import os
 import string
-import sqlite3
 import sys
+import Levenshtein
+import string
 
 class Memoize: # stolen from http://code.activestate.com/recipes/52201/
     """Memoize(fn) - an instance which acts like fn but memoizes its arguments
@@ -83,30 +88,27 @@ def deckeval(deck):
 conn = dict()
 c = dict()
 
-for i in ranged(mini, maxi):
-    conn[i] = sqlite3.connect("deck" + str(i) + ".sqlite3")
-    c[i] = conn[i].cursor()
-    try:
-        c[i].execute('''DROP TABLE decks''')
-    except:
-        pass
-    c[i].execute('''CREATE TABLE decks
-                    (a int, b int, c int, d int, e int, f int, g int, h int, i int, perc float)''')
+max = 0
+maxc = 0
+fcount = 0
+
+queue = []
+for i in decks(mini,maxi):
+    queue.append(i)
 
 count = 0
-for deck in decks(mini, maxi):
+bestdeck = ""
+bestperc = 0
+
+while (len(queue) > 0):
+    deck = queue.pop(0)
     count += 1
     icount = deck.count("I")
     perc = deckeval(deck)
-    print count,deck,perc
-    c[icount].execute('''INSERT INTO decks VALUES (?,?,?,?,?,?,?,?,?,?)''',
-        [deck.count("A"),
-         deck.count("B"),
-         deck.count("C"),
-         deck.count("D"),
-         deck.count("E"),
-         deck.count("F"),
-         deck.count("G"),
-         deck.count("H"),
-         deck.count("I"),
-         perc])
+    if perc > bestperc:
+        bestperc = perc
+        bestdeck = deck
+        queue = sorted(queue, key = lambda k: Levenshtein.distance(k, bestdeck))
+    print icount, count, maxc, deck, perc, bestdeck, bestperc
+
+print "done"
