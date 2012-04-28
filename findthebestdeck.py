@@ -2,11 +2,24 @@ import commands
 import shutil
 import time
 import os
-import string
 import sys
-<<<<<<< HEAD
 import threading
 import time
+#import Levenshtein
+import string
+
+c = dict()
+
+max = 0
+maxc = 0
+
+ioqueue = []
+iolock = threading.Lock()
+
+deckqueue = []
+decklock = threading.Lock()
+
+
 
 class CalculateThreadClass(threading.Thread):
     def run(self):
@@ -20,7 +33,6 @@ class CalculateThreadClass(threading.Thread):
             deck = deckqueue.pop()
             decklock.release()
 
-            #print len(deckqueue)
             perc = deckeval(deck)
         
             iolock.acquire()
@@ -29,40 +41,26 @@ class CalculateThreadClass(threading.Thread):
 
 class OutputThreadClass(threading.Thread):
     def run(self):
-        for i in ranged(mini, maxi):
-            conn[i] = sqlite3.connect("deck" + str(i) + ".sqlite3")
-            c[i] = conn[i].cursor()
-            try:
-                c[i].execute('''DROP TABLE decks''')
-            except:
-                pass
-            c[i].execute('''CREATE TABLE decks
-                        (a int, b int, c int, d int, e int, f int, g int, h int, i int, perc float)''')
+        count = 0
+        bestdeck = ""
+        bestperc = 0.0
+
         while(1):
             while(not ioqueue):
                 time.sleep(10)
             iolock.acquire()
             temp = ioqueue.pop()
+            count += 1
             iolock.release()
             deck = temp[0]
             perc = temp[1]
-            print deck,perc, len(ioqueue)
             icount = deck.count("I")
-            c[icount].execute('''INSERT INTO decks VALUES (?,?,?,?,?,?,?,?,?,?)''',
-                [deck.count("A"),
-                 deck.count("B"),
-                 deck.count("C"),
-                 deck.count("D"),
-                 deck.count("E"),
-                 deck.count("F"),
-                 deck.count("G"),
-                 deck.count("H"),
-                 deck.count("I"),
-                 perc])
-=======
-import Levenshtein
-import string
->>>>>>> 6070b15f48d2ccfcd98ce75dd811ac9c107a6f3a
+            count += 1
+            if perc > bestperc:
+                bestperc = perc
+                bestdeck = deck
+                #queue = sorted(queue, key = lambda k: Levenshtein.distance(k, bestdeck))
+            print icount, count, maxc, deck, perc, bestdeck, bestperc
 
 class Memoize: # stolen from http://code.activestate.com/recipes/52201/
     """Memoize(fn) - an instance which acts like fn but memoizes its arguments
@@ -142,51 +140,17 @@ def deckeval(deck):
     oddsofgood4 = (d4 * 1.0 / ((decksize) * (decksize - 1) * (decksize - 2) * (decksize - 3)))
     return oddsofgood7 + (1 - oddsofgood7) * oddsofgood6 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6))) * oddsofgood5 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6))) * oddsofgood5))) * oddsofgood4
 
-conn = dict()
-c = dict()
-
-<<<<<<< HEAD
-ioqueue = []
-iolock = threading.Lock()
-
-deckqueue = []
-decklock = threading.Lock()
-
 t = OutputThreadClass()
 t.start()
 
 for i in range(4):
-	t = CalculateThreadClass()
-	t.start()
+    t = CalculateThreadClass()
+    t.start()
 
 for deck in decks(mini, maxi):
     decklock.acquire()
     deckqueue.append(deck)
-    decklock.release()
-=======
-max = 0
-maxc = 0
-fcount = 0
-
-queue = []
-for i in decks(mini,maxi):
-    queue.append(i)
     maxc += 1
-
-count = 0
-bestdeck = ""
-bestperc = 0
-
-while (len(queue) > 0):
-    deck = queue.pop(0)
-    count += 1
-    icount = deck.count("I")
-    perc = deckeval(deck)
-    if perc > bestperc:
-        bestperc = perc
-        bestdeck = deck
-        queue = sorted(queue, key = lambda k: Levenshtein.distance(k, bestdeck))
-    print icount, count, maxc, deck, perc, bestdeck, bestperc
+    decklock.release()
 
 print "done"
->>>>>>> 6070b15f48d2ccfcd98ce75dd811ac9c107a6f3a
