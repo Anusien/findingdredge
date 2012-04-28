@@ -1,6 +1,10 @@
+import commands
+import shutil
+import time
+import os
 import string
-import sqlite3
 import sys
+<<<<<<< HEAD
 import threading
 import time
 
@@ -55,6 +59,10 @@ class OutputThreadClass(threading.Thread):
                  deck.count("H"),
                  deck.count("I"),
                  perc])
+=======
+import Levenshtein
+import string
+>>>>>>> 6070b15f48d2ccfcd98ce75dd811ac9c107a6f3a
 
 class Memoize: # stolen from http://code.activestate.com/recipes/52201/
     """Memoize(fn) - an instance which acts like fn but memoizes its arguments
@@ -137,6 +145,7 @@ def deckeval(deck):
 conn = dict()
 c = dict()
 
+<<<<<<< HEAD
 ioqueue = []
 iolock = threading.Lock()
 
@@ -154,3 +163,30 @@ for deck in decks(mini, maxi):
     decklock.acquire()
     deckqueue.append(deck)
     decklock.release()
+=======
+max = 0
+maxc = 0
+fcount = 0
+
+queue = []
+for i in decks(mini,maxi):
+    queue.append(i)
+    maxc += 1
+
+count = 0
+bestdeck = ""
+bestperc = 0
+
+while (len(queue) > 0):
+    deck = queue.pop(0)
+    count += 1
+    icount = deck.count("I")
+    perc = deckeval(deck)
+    if perc > bestperc:
+        bestperc = perc
+        bestdeck = deck
+        queue = sorted(queue, key = lambda k: Levenshtein.distance(k, bestdeck))
+    print icount, count, maxc, deck, perc, bestdeck, bestperc
+
+print "done"
+>>>>>>> 6070b15f48d2ccfcd98ce75dd811ac9c107a6f3a
