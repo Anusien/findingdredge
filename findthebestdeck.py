@@ -95,6 +95,7 @@ fcount = 0
 queue = []
 for i in decks(mini,maxi):
     queue.append(i)
+    maxc += 1
 
 count = 0
 bestdeck = ""
