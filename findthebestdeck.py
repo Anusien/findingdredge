@@ -35,7 +35,8 @@ def ranged(x, y):
 def decks(mini = 12, maxi = 14):
     for a in ranged(5, 12):
         for b in ranged(0, 4):
-            for c in ranged(0, 4):
+#            for c in ranged(0, 4):
+            for c in [0, 4]:
                 for d in ranged(0, 12):
                     for e in ranged(0, 4):
                         for f in ranged(0, 4):
