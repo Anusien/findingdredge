@@ -1,20 +1,82 @@
 import Levenshtein
 import sqlite3
+import sys
+import threading
+import time
+from math import factorial as fact
+
+deckqueue = []
+deckqueuelock = threading.Lock()
+calc_threads = 2
+
+ioqueue = []
+ioqueuelock = threading.Lock()
+
+should_sort = 0
+
+best = 0
+maxc = 0
+count = 0
+
+class IOThread(threading.Thread):
+    def run(self):
+        global count, maxc
+
+
+        conn = sqlite3.connect("decks.sqlite3")
+        curs = conn.cursor()
+        try:
+            curs.execute('''DROP TABLE decks''')
+        except:
+            pass
+        curs.execute('''CREATE TABLE decks
+                        (a int, b int, c int, d int, e int, f int, g int, h int, i int, perc float)''')
+
+        while count < maxc:
+            while not ioqueue:
+                time.sleep(5)
+            ioqueuelock.acquire()
+            if not ioqueue:
+                ioqueuelock.release()
+                continue
+
+            i = ioqueue.pop()
+            ioqueuelock.release()
+            deck = i[0]
+            perc = i[1]
+
+            curs.execute('''INSERT INTO decks VALUES (?,?,?,?,?,?,?,?,?,?)''', [deck[0], deck[1], deck[2], deck[3], deck[4], deck[5], deck[6], deck[7], deck[8], perc])
+            conn.commit()
+
+
+class CalculateThread(threading.Thread):
+    def run(self):
+        global count, best
+        time.sleep(1)
+        while deckqueue:
+            deckqueuelock.acquire()
+            if(not deckqueue):
+                deckqueue.release()
+                continue
+            i = deckqueue.pop(0)
+            count += 1
+            deckqueuelock.release()
+            temp = deckCheck(i[0:8])
+            ioqueuelock.acquire()
+            ioqueue.append([i, temp])
+            ioqueuelock.release()
+            if temp > best:
+                best = temp
+                bestdeck = i
+                print i, temp, count, maxc
+                if should_sort:
+                    deckqueuelock.acquire()
+                    deckqueue.sort(key = lambda k: Levenshtein.distance(deckstring(k), deckstring(bestdeck)))
+                    deckqueuelock.release()
 
 def deckstring(deck):
     return "1" * deck[0] + "2" * deck[1] + "3" * deck[2] + "4" * deck[3] + "5" * deck[4] + "6" * deck[5] + "7" * deck[6] + "8" * deck[7] + "9" * deck[8]
 
-conn = sqlite3.connect("decks.sqlite3")
-curs = conn.cursor()
-try:
-    curs.execute('''DROP TABLE decks''')
-except:
-    pass
-curs.execute('''CREATE TABLE decks
-                (a int, b int, c int, d int, e int, f int, g int, h int, i int, perc float)''')
-
-
-from math import factorial as fact
 
 def ranged(x, y):
     return xrange(x, y + 1)
@@ -63,7 +125,7 @@ def deckCheck(deck):
     hand = list(mins)
     mulledTo = 1
     final = 0
-    goodHands =[[2, 1, 1, 0, 0, 0, 0, 0],[1, 1, 1, 0, 0, 0, 0, 1],[1, 0, 1, 0, 1, 0, 0, 1],[1, 0, 1, 0, 0, 1, 0, 1],[1, 1, 0, 1, 0, 0, 0, 1],[1, 0, 0, 1, 1, 0, 0, 1],[1, 0, 0, 1, 0, 1, 0, 1],[1, 0, 0, 1, 0, 0, 1, 1],[1, 2, 0, 0, 0, 0, 0, 1],[1, 1, 0, 0, 1, 0, 0, 1],[1, 1, 0, 0, 0, 1, 0, 1],[1, 1, 0, 0, 0, 0, 1, 1],[1, 1, 0, 0, 1, 0, 0, 1],[1, 0, 0, 0, 2, 0, 0, 1],[1, 0, 0, 0, 1, 1, 0, 1],[1, 0, 0, 0, 1, 0, 1, 1],[1, 0, 0, 0, 1, 0, 2, 0],[1, 0, 0, 0, 2, 0, 1, 0],[1, 0, 0, 0, 1, 1, 1, 0]]
+    goodHands =[[2, 1, 1, 0, 0, 0, 0, 0],[1, 1, 1, 0, 0, 0, 0, 1],[1, 0, 1, 0, 1, 0, 0, 1],[1, 0, 1, 0, 0, 1, 0, 1],[1, 1, 0, 1, 0, 0, 0, 1],[1, 0, 0, 1, 1, 0, 0, 1],[1, 0, 0, 1, 0, 1, 0, 1],[1, 0, 0, 1, 0, 0, 1, 1],[1, 2, 0, 0, 0, 0, 0, 1],[1, 1, 0, 0, 0, 1, 0, 1],[1, 1, 0, 0, 0, 0, 1, 1],[1, 1, 0, 0, 1, 0, 0, 1],[1, 0, 0, 0, 2, 0, 0, 1],[1, 0, 0, 0, 1, 1, 0, 1],[1, 0, 0, 0, 1, 0, 1, 1],[1, 0, 0, 0, 1, 0, 2, 0],[1, 0, 0, 0, 2, 0, 1, 0],[1, 0, 0, 0, 1, 1, 1, 0]]
     for h in [7, 6, 5, 4]:
         p = 0
         looping = 1
@@ -103,19 +165,16 @@ def decks(mini = 12, maxi = 14):
                                         if (a + b + c + d + e + f + g + h + i == 60):
                                             yield([a,b,c,d,e,f,g,h,i])
 
-best = 0
+# Main
+t = IOThread()
+t.start()
 
-queue = []
+for i in range(calc_threads):
+    t = CalculateThread()
+    t.start()
+
 for i in decks(12, 16):
-    queue.append(i)
-
-while (len(queue) > 0):
-    i = queue.pop(0)
-    temp = deckCheck(i[0:8])
-    if temp > best:
-        best = temp
-        bestdeck = i
-        print i, temp
-        queue = sorted(queue, key = lambda k: Levenshtein.distance(deckstring(k), deckstring(bestdeck)))
-    curs.execute('''INSERT INTO decks VALUES (?,?,?,?,?,?,?,?,?,?)''', [i[0], i[1], i[2], i[3], i[4], i[5], i[6], i[7], i[8], temp])
-    conn.commit()
+    deckqueuelock.acquire()
+    deckqueue.append(i)
+    maxc += 1
+    deckqueuelock.release()
