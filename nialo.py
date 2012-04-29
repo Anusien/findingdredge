@@ -1,4 +1,8 @@
+import Levenshtein
 import sqlite3
+
+def deckstring(deck):
+    return "1" * deck[0] + "2" * deck[1] + "3" * deck[2] + "4" * deck[3] + "5" * deck[4] + "6" * deck[5] + "7" * deck[6] + "8" * deck[7] + "9" * deck[8]
 
 conn = sqlite3.connect("decks.sqlite3")
 curs = conn.cursor()
@@ -101,10 +105,17 @@ def decks(mini = 12, maxi = 14):
 
 best = 0
 
-for i in decks(12, 15):
+queue = []
+for i in decks(12, 16):
+    queue.append(i)
+
+while (len(queue) > 0):
+    i = queue.pop(0)
     temp = deckCheck(i[0:8])
     if temp > best:
         best = temp
+        bestdeck = i
         print i, temp
+        queue = sorted(queue, key = lambda k: Levenshtein.distance(deckstring(k), deckstring(bestdeck)))
     curs.execute('''INSERT INTO decks VALUES (?,?,?,?,?,?,?,?,?,?)''', [i[0], i[1], i[2], i[3], i[4], i[5], i[6], i[7], i[8], temp])
     conn.commit()
