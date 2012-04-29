@@ -4,6 +4,14 @@ import sqlite3
 for i in ["decks.sqlite3"]:
     conn = sqlite3.connect(i)
     c = conn.cursor()
+
+
+    print "Decks:",
+    c.execute('select count(*) from decks')
+    for j in c.fetchall():
+        print j[0]
+
+
     print "Best 10 decks:"
     c.execute('select * from decks order by perc desc limit 10')
     for j in c.fetchall():
