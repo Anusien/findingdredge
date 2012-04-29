@@ -39,7 +39,7 @@ for i in ["decks.sqlite3"]:
     for j in c.fetchall():
         print j
     print "Best 15-chaff, 4 LED deck:",
-    c.execute('select * from decks where i = 12 and c = 4 order by perc desc limit 1')
+    c.execute('select * from decks where i = 15 and c = 4 order by perc desc limit 1')
     for j in c.fetchall():
         print j
     
