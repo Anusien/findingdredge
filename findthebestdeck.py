@@ -2,10 +2,65 @@ import commands
 import shutil
 import time
 import os
-import string
 import sys
-import Levenshtein
+import threading
+import time
+#import Levenshtein
 import string
+
+c = dict()
+
+max = 0
+maxc = 0
+
+ioqueue = []
+iolock = threading.Lock()
+
+deckqueue = []
+decklock = threading.Lock()
+
+
+
+class CalculateThreadClass(threading.Thread):
+    def run(self):
+        while(1):
+            while(not deckqueue):
+                time.sleep(.5)
+            decklock.acquire()
+            if(not deckqueue):
+                decklock.release()
+                continue
+            deck = deckqueue.pop()
+            decklock.release()
+
+            perc = deckeval(deck)
+        
+            iolock.acquire()
+            ioqueue.append([deck, perc])
+            iolock.release()
+
+class OutputThreadClass(threading.Thread):
+    def run(self):
+        count = 0
+        bestdeck = ""
+        bestperc = 0.0
+
+        while(1):
+            while(not ioqueue):
+                time.sleep(10)
+            iolock.acquire()
+            temp = ioqueue.pop()
+            count += 1
+            iolock.release()
+            deck = temp[0]
+            perc = temp[1]
+            icount = deck.count("I")
+            count += 1
+            if perc > bestperc:
+                bestperc = perc
+                bestdeck = deck
+                #queue = sorted(queue, key = lambda k: Levenshtein.distance(k, bestdeck))
+            print icount, count, maxc, deck, perc, bestdeck, bestperc
 
 class Memoize: # stolen from http://code.activestate.com/recipes/52201/
     """Memoize(fn) - an instance which acts like fn but memoizes its arguments
@@ -86,31 +141,17 @@ def deckeval(deck):
     oddsofgood4 = (d4 * 1.0 / ((decksize) * (decksize - 1) * (decksize - 2) * (decksize - 3)))
     return oddsofgood7 + (1 - oddsofgood7) * oddsofgood6 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6))) * oddsofgood5 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6))) * oddsofgood5))) * oddsofgood4
 
-conn = dict()
-c = dict()
+t = OutputThreadClass()
+t.start()
 
-max = 0
-maxc = 0
-fcount = 0
+for i in range(4):
+    t = CalculateThreadClass()
+    t.start()
 
-queue = []
-for i in decks(mini,maxi):
-    queue.append(i)
+for deck in decks(mini, maxi):
+    decklock.acquire()
+    deckqueue.append(deck)
     maxc += 1
-
-count = 0
-bestdeck = ""
-bestperc = 0
-
-while (len(queue) > 0):
-    deck = queue.pop(0)
-    count += 1
-    icount = deck.count("I")
-    perc = deckeval(deck)
-    if perc > bestperc:
-        bestperc = perc
-        bestdeck = deck
-        queue = sorted(queue, key = lambda k: Levenshtein.distance(k, bestdeck))
-    print icount, count, maxc, deck, perc, bestdeck, bestperc
+    decklock.release()
 
 print "done"
