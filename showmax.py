@@ -13,6 +13,7 @@ for i in ["decks.sqlite3"]:
 
 
     print "Best 10 decks:"
+    print "Dredger, Faithless Looting, Lion's Eye Diamond, Discard Creature, Careful Study, Breakthrough, Cephalid Coliseum, Land, Other"
     c.execute('select * from decks order by perc desc limit 10')
     for j in c.fetchall():
         print j

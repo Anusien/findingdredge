@@ -136,6 +136,7 @@ def deckCheck(deck):
                 for i in range(8):
                     if (hand[i] < goodHand[i]):
                         good = 0
+						break
                 if (good == 1):
                     p = p + probn(60,deck,hand,hand,h)
                     break
