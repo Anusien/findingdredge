@@ -48,6 +48,9 @@ class OutputThreadClass(threading.Thread):
         while(1):
             while(not ioqueue):
                 time.sleep(10)
+                if(not ioqueue):
+                    print "done"
+                    Sys.exit()
             iolock.acquire()
             temp = ioqueue.pop()
             count += 1
@@ -55,7 +58,6 @@ class OutputThreadClass(threading.Thread):
             deck = temp[0]
             perc = temp[1]
             icount = deck.count("I")
-            count += 1
             if perc > bestperc:
                 bestperc = perc
                 bestdeck = deck
@@ -143,7 +145,7 @@ def deckeval(deck):
 t = OutputThreadClass()
 t.start()
 
-for i in range(4):
+for i in range(2):
     t = CalculateThreadClass()
     t.start()
 
@@ -153,4 +155,3 @@ for deck in decks(mini, maxi):
     maxc += 1
     decklock.release()
 
-print "done"
