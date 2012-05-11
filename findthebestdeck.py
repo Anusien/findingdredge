@@ -1,158 +1,344 @@
-import commands
-import shutil
 import time
 import os
 import sys
-import threading
-import time
-#import Levenshtein
-import string
+import sqlite3
+import queue
+from multiprocessing import Pool, Process
+from math import factorial 
 
-c = dict()
-
-max = 0
-maxc = 0
-
-ioqueue = []
-iolock = threading.Lock()
-
-deckqueue = []
-decklock = threading.Lock()
+# Globals
+cardtypes = []
+goodhands = []
+queue_total = 0
+num_calc_processes = 2
 
 
+# Run-time constants
+dbname = 'rainbow.sqlite3'
+dredge_configuration = 1
 
-class CalculateThreadClass(threading.Thread):
-    def run(self):
-        while(1):
-            while(not deckqueue):
-                time.sleep(.5)
-            decklock.acquire()
-            if(not deckqueue):
-                decklock.release()
-                continue
-            deck = deckqueue.pop()
-            decklock.release()
+# Set up the set of cards we could use
+# ["Card Name", Min, Max]
+if dredge_configuration == 0:
+	dbname = "rainbow.sqlite3"
+	cardtypes = [
+		["Dredger", 8, 12],
+		["Faithless_Looting", 0, 4],
+		["Lion_s_Eye Diamond", 0, 4],
+		["Putrid_Imp_Cabal_Therapy_Tireless Tribe", 2, 12],
+		["Careful_Study_Hapless_Researcher", 0, 8],
+		["Breakthrough", 0, 4],
+		["Winds_of_Change", 0, 4],
+		["Cephalid_Coliseum", 0, 4],
+		["Rainbow_Land", 8, 16],
+		["Win_Condition", 12, 15]]
 
-            perc = deckeval(deck)
-        
-            iolock.acquire()
-            ioqueue.append([deck, perc])
-            iolock.release()
+	#goodhands = ["AABC", "ABCI", "ACEI", "ACFI", "ABDI", "ADEI", "ADFI", "ADHI", "ABBI", "ABEI", "ABFI", "ABHI", "ABEI", "AEEI", "AEFI", "AEHI", "AEHH", "AEEH", "AEFH", "ABGI", "ADGI", "AEGI"]
+	goodhands = [[2, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+		[1, 1, 1, 0, 0, 0, 0, 0, 1, 0],
+		[1, 0, 1, 0, 1, 0, 0, 0, 1, 0],
+		[1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+		[1, 1, 0, 1, 0, 0, 0, 0, 1, 0],
+		[1, 0, 0, 1, 1, 0, 0, 0, 1, 0],
+		[1, 0, 0, 1, 0, 1, 0, 0, 1, 0],
+		[1, 0, 0, 1, 0, 0, 0, 1, 1, 0],
+		[1, 2, 0, 0, 0, 0, 0, 0, 1, 0],
+		[1, 1, 0, 0, 1, 0, 0, 0, 1, 0],
+		[1, 1, 0, 0, 0, 1, 0, 0, 1, 0],
+		[1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
+		[1, 1, 0, 0, 1, 0, 0, 0, 1, 0],
+		[1, 0, 0, 0, 2, 0, 0, 0, 1, 0],
+		[1, 0, 0, 0, 1, 1, 0, 0, 1, 0],
+		[1, 0, 0, 0, 1, 0, 0, 1, 1, 0],
+		[1, 0, 0, 0, 1, 0, 0, 2, 0, 0],
+		[1, 0, 0, 0, 2, 0, 0, 1, 0, 0],
+		[1, 0, 0, 0, 1, 1, 0, 1, 0, 0],
+		[1, 1, 0, 0, 0, 0, 1, 0, 1, 0],
+		[1, 0, 0, 1, 0, 0, 1, 0, 1, 0],
+		[1, 0, 0, 0, 1, 0, 1, 0, 1, 0]]
 
-class OutputThreadClass(threading.Thread):
-    def run(self):
-        count = 0
-        bestdeck = ""
-        bestperc = 0.0
 
-        while(1):
-            while(not ioqueue):
-                time.sleep(10)
-                if(not ioqueue):
-                    print "done"
-                    Sys.exit()
-            iolock.acquire()
-            temp = ioqueue.pop()
-            count += 1
-            iolock.release()
-            deck = temp[0]
-            perc = temp[1]
-            icount = deck.count("I")
-            if perc > bestperc:
-                bestperc = perc
-                bestdeck = deck
-                #queue = sorted(queue, key = lambda k: Levenshtein.distance(k, bestdeck))
-            print icount, count, maxc, deck, perc, bestdeck, bestperc
+else if dredge_configuration == 1:
+	dbname = "mckeown.sqlite3"
+	cardtypes = [
+		["Dredger", 8, 12],
+		["Faithless_Looting", 0, 4],
+		["Lion_s_Eye_Diamond", 0, 4],
+		["Putrid_Imp_Cabal_Therapy", 2, 8],
+		["Careful_Study_Hapless_Researcher", 0, 8],
+		["Breakthrough", 0, 4],
+		["Winds_of_Change", 0, 4],
+		["Cephalid_Coliseum", 0, 4],
+		["Fetchland", 0, 8],
+		["Volcanic_Island", 1, 4],
+		["Bayou", 1, 4],
+		["Win_Condition", 12, 17]]
+
+	goodhands = [
+		[2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0], [2, 1, 2, 0, 1, 0, 0, 0, 1, 1, 0, 0],
+		[1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0], [1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0], [1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+		[1, 0, 0, 1, 0, 0, 1, 0, 2, 0, 0, 0], [1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0], [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0],
+		[1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0], [1, 1, 0, 1, 0, 0, 0, 0, 2, 0, 0, 0], [1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+		[1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0], [1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0], [1, 0, 0, 1, 1, 0, 0, 0, 2, 0, 0, 0],
+		[1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0], [1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0], [1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0],
+		[1, 0, 0, 1, 0, 1, 0, 0, 2, 0, 0, 0], [1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0], [1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0],
+		[1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0], [1, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 0], [1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0],
+		[1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0], [1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0], [1, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+		[1, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
+		[1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0], [1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0], [1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+		[1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
+		[1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0], [1, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0],
+		[1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0], [1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
+		[1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0], [1, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0], [1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0],
+		[1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0], [1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0],
+		[1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0]]
+
+		#goodhands = ["AABC", "ABCI", "ABCJ" "ACEI", "ACEJ", "ACFI", "ACFJ", "ADGII","ADGIJ", "ADGIK", "ADGJK", "ABDII", "ABDIJ", "ABDIK", "ABDJK", "ADEII", "ADEIJ", "ADEIK", "ADEJK", "ADFII", "ADFIJ", "ADFIK", "ADFJK", "ADHII", "ADHIJ", "ADHIK", "ADHJK", "ABBI", "ABBJ", "ABEI", "ABEJ", "ABFI", "ABFJ", "ABHI", "ABHJ", "ABEI", "ABEJ", "AEEI", "AEEJ", "AEFI", "AEFJ", "AEHI", "AEHJ", "AEHH", "AEEH", "AEFH", "ABGI", "ABGJ", "AEGI", "AEGJ"]
+
+else if dredge_configuration == 2:
+	dbname = "mckeown2.sqlite3"
+	cardtypes = [
+		["Dredger", 8, 12],
+		["Faithless_Looting", 0, 4],
+		["Lion_s_Eye_Diamond", 0, 4],
+		["Putrid_Imp_Cabal_Therapy", 2, 8],
+		["Careful_Study_Hapless_Researcher", 0, 8],
+		["Breakthrough", 0, 4],
+		["Winds_of_Change", 0, 4],
+		["Cephalid_Coliseum", 0, 4],
+		["Fetchland", 0, 8],
+		["Volcanic_Island", 1, 4],
+		["Bayou", 0, 0],
+		["Win_Condition", 12, 17]]
+
+	goodhands = [
+		[2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0], [2, 1, 2, 0, 1, 0, 0, 0, 1, 1, 0, 0],
+		[1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0], [1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0], [1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+		[1, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+		[1, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
+		[1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0], [1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0], [1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+		[1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
+		[1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0], [1, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0],
+		[1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0], [1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
+		[1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0], [1, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0], [1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0],
+		[1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0], [1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0],
+		[1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0]]
 
 class Memoize: # stolen from http://code.activestate.com/recipes/52201/
-    """Memoize(fn) - an instance which acts like fn but memoizes its arguments
-       Will only work on functions with non-mutable arguments
-    """
-    def __init__(self, fn):
-        self.fn = fn
-        self.memo = {}
-    def __call__(self, *args):
-        if not self.memo.has_key(args):
-            self.memo[args] = self.fn(*args)
-        return self.memo[args]
+	"""Memoize(fn) - an instance which acts like fn but memoizes its arguments
+	   Will only work on functions with non-mutable arguments
+	"""
+	def __init__(self, fn):
+		self.fn = fn
+		self.memo = {}
+	def __call__(self, *args):
+		if args not in self.memo:
+			self.memo[args] = self.fn(*args)
+		return self.memo[args]
 
-mini = 12
-maxi = 14
-if (len(sys.argv) > 1):
-    mini = int(sys.argv[1])
-    maxi = int(sys.argv[1])
+def SQLLogDeck(cursor, connection, deck, perc):
+	sql = "INSERT INTO decks VALUES ("
+	for card in range(len(deck)):
+		sql += str(deck[card]) + ", "
+	sql += str(perc) + ")"
+	cursor.execute(sql)
+	connection.commit()
 
+def ProcessIO(ioqueue):
+	conn = sqlite3.connect(dbname)
+	curs = conn.cursor()
+
+	count = 0
+	bestperc = 0.0
+	global queue_total
+
+	while True:
+		while queue_total == 0:
+			time.sleep(1)
+		if count = queue_total:
+			return count
+		temp = ioqueue.get(True)
+		count += 1
+		deck = temp[0]
+		perc = temp[1]
+		if perc > bestperc:
+			bestperc = perc
+			print(deck, perc, count, queue_total)
+		SQLLogDeck(curs, conn, deck, perc)
+	while
 
 # Modified range function, because including the actual max you want is handy.
 def ranged(x, y):
-    for z in xrange(x, y + 1):
-        yield z
+	return range(x, y + 1)
 
-# Deck generator
-def decks(mini = 12, maxi = 14):
-    for a in ranged(5, 12):
-        for b in ranged(0, 4):
-#            for c in ranged(0, 4):
-            for c in [0, 4]:
-                for d in ranged(0, 12):
-                    for e in ranged(0, 4):
-                        for f in ranged(0, 4):
-                            for g in ranged(0, 4):
-                                for h in ranged(0, 16):
-                                    for i in ranged(mini, maxi):
-                                        if (a + b + c + d + e + f + g + h + i == 60):
-                                            yield ("A" * a + "B" * b + "C" * c + "D" * d + "E" * e + "F" * f + "G" * g + "H" * h + "I" * i)
+def generatedecks():
+	looping = 1
+	deck = [c[1] for c in cardtypes]
+	
+	while looping:
+		if sum(deck) == 60:
+			yield list(deck) 
+		
+		deck[0] += 1
+		for i in range(len(cardtypes) - 1):
+			if deck[i] > cardtypes[i][2]:
+				deck[i] = cardtypes[i][1]
+				deck[i+1] += 1
+				if deck[len(cardtypes)-1] > cardtypes[len(cardtypes)-1][2]:
+					looping = 0
+					break
+			else:
+				break
 
-def deckeval(deck):
-    def pullcard(deck,handsize,pulledsofar):
-        total = 0
-        hands = ("AABC", "ABCH", "ACEH", "ACFH", "ABDH", "ADEH", "ADFH", "ADGH", "ABBH", "ABEH", "ABFH", "ABGH", "ABEH", "AEEH", "AEFH", "AEGH", "AEGG", "AEEG", "AEFG")
-        if (handsize == pulledsofar.__len__()):
-            for winninghand in hands:
-                good = 1
-                for card in winninghand:
-                    if pulledsofar.count(card) < winninghand.count(card):
-                        good = 0
-                if good == 1:
-                    return 1
-            return 0
-        for i in range(0, deck.__len__()):
-            pulledsofarcopy = pulledsofar
-            if i == 0:
-                deckcopy = deck[1:]
-            else:
-                if i == deck.__len__() - 1:
-                    deckcopy = deck[:deck.__len__() - 1]
-                else:
-                    deckcopy = deck[0:i] + deck[i+1:]
-            pulledsofarcopy += deck[i]
-            pulledsofarcopy = string.join(((sorted(pulledsofarcopy))),"")
-            total += pullcard(deckcopy, handsize, pulledsofarcopy)
-        return total
+def comb(n, k):
+	if (k > n):
+		return 0
+	else:
+		if (k == n):
+			return 1
+		else:
+			return ((factorial(n))/((factorial(k))*(factorial(n-k))))
 
-    pullcard = Memoize(pullcard)
+#prob ABNNNNN = (A C copies(A) * B C copies(B) * N C copies(N) over 7 C decksize
+def probn(decksize, copies, minC, maxC, hand):
+	n = len(copies)
+	denominator = comb(decksize,hand) * 1.0
+	res = 0.0
+	remDeck = decksize - sum(copies)
+	tempMin = list(minC)
+	looping = 1
+	while (looping == 1):
+		numerator = 1.0
+		for i in range(n):
+			numerator = numerator * comb(copies[i],tempMin[i])
+		numerator = numerator * comb(remDeck,(hand - sum(tempMin)))
+		res = res + (numerator/denominator)
+		#looping logic
+		if(n > 2):
+			for j in range(n):
+				if((tempMin[j] == maxC[j]) or (sum(tempMin) == hand)):
+					tempMin[j] = minC[j]
+					if (j == (n-1)):
+						looping = 0
+				else:
+					hand[j] += 1
+		#silly special cases cause python is silly
+		#omitted cause I'm lazy
+	return res
 
-    d7 = pullcard(deck,7,"")
-    d6 = pullcard(deck,6,"")
-    d5 = pullcard(deck,5,"")
-    d4 = pullcard(deck,4,"")
-    decksize = deck.__len__()
-    oddsofgood7 = (d7 * 1.0 / ((decksize) * (decksize - 1) * (decksize - 2) * (decksize - 3) * (decksize - 4) * (decksize - 5) * (decksize - 6)))
-    oddsofgood6 = (d6 * 1.0 / ((decksize) * (decksize - 1) * (decksize - 2) * (decksize - 3) * (decksize - 4) * (decksize - 5)))
-    oddsofgood5 = (d5 * 1.0 / ((decksize) * (decksize - 1) * (decksize - 2) * (decksize - 3) * (decksize - 4)))
-    oddsofgood4 = (d4 * 1.0 / ((decksize) * (decksize - 1) * (decksize - 2) * (decksize - 3)))
-    return oddsofgood7 + (1 - oddsofgood7) * oddsofgood6 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6))) * oddsofgood5 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6 + (1 - ((oddsofgood7 + (1 - oddsofgood7) * oddsofgood6))) * oddsofgood5))) * oddsofgood4
+def deckCheck(deck):
+	mins = [0] * len(cardtypes)
+	mins[0] = 1
+	hand = list(mins)
+	mulledTo = 1
+	final = 0
+	for h in [7, 6, 5, 4]:
+		p = 0
+		looping = 1
+		while(looping == 1):
+			#check if hand is 'good'
+			for goodhand in goodhands:
+				good = 1
+				for i in range(len(cardtypes)):
+					if (hand[i] < goodhand[i]):
+						good = 0
+						break
+				if (good == 1):
+					p = p + probn(sum(deck),deck,hand,hand,h)
+					break
+			#looping logic
+			for j in range(len(cardtypes)):
+				if ((hand[j] == deck[j]) or (sum(hand) == h)):
+						hand[j] = mins[j]
+						if(j == len(cardtypes)-1):
+							looping = 0
+				else:
+					hand[j] += 1
+					break
+		final = final + mulledTo * p
+		mulledTo = 1 - final
+	return final
 
-t = OutputThreadClass()
-t.start()
+def convertStringDeckToArray(deck):
+	newdeck = [0] * len(cardtypes)
+	for c in range(len(deck)):
+		newdeck[ord(deck[c])-ord('A')] += 1
+	return newdeck
 
-for i in range(2):
-    t = CalculateThreadClass()
-    t.start()
+def convertArrayDeckToString(listofints):
+	deck = ""
+	for c in range(len(listofints)):
+		deck += string.uppercase[c]*int(listofints[c])
+	return deck
 
-for deck in decks(mini, maxi):
-    decklock.acquire()
-    deckqueue.append(deck)
-    maxc += 1
-    decklock.release()
+def WipeoutDB():
+	conn = sqlite3.connect(dbname)
+	curs = conn.cursor()
+	try:
+		curs.execute('''DROP TABLE decks''')
+	except:
+		pass
+	sql = "CREATE TABLE DECKS ("
+	for card in cardtypes:
+		sql += str(card[0])
+		sql += " int, "
+	sql += "perc float)"
+	curs.execute(sql)
 
+# Check the database for a deck. If it exists, return it.
+# Otherwise calculate it and store in DB
+def LookupDeck(deck):
+	conn = sqlite3.connect(dbname)
+	curs = conn.cursor()
+	sql = "SELECT * FROM decks WHERE "
+	for i in range(len(deck)):
+		if i != 0:
+			sql += " and "
+		sql += str(cardtypes[i][0])
+		sql += " = "
+		sql += str(deck[i])
+	curs.execute(sql)
+	results = curs.fetchall()
+	if results:
+		for result in results:
+			print(result)
+	else:
+		perc = deckCheck(deck)
+		SQLLogDeck(curs, conn, deck, perc)
+		LookupDeck(deck)
+
+def ProcessDeckCheck(deck, ioqueue):
+	result = deckCheck(deck)
+	ioqueue.put_nowait((deck, perc))
+
+# Main
+if len(sys.argv) < 2:
+	WipeoutDB()
+
+
+	count = 0
+	bestperc = 0.0
+
+	# Set up the I/O Thread. Necessary because all Sqlite3 stuff should be in same thread
+	ioqueue = queue.Queue()
+	ioprocess = Process(target=ProcessIO, args=(ioqueue))
+	ioprocess.start()
+
+	# Set up the worker threads
+	pool = Pool(processes=num_calc_processes)
+
+	for deck in generatedecks():
+		count += 1
+		print deck,count
+		pool.apply_async(ProcessDeckCheck, [deck, ioqueue])
+	ioprocess.join()
+
+
+else:
+	deck = []
+	if len(sys.argv) == 2:
+		deck = convertStringDeckToArray(sys.argv[1])
+	else:
+		deck = [int(l) for l in sys.argv[1:]]
+	
+	LookupDeck(deck)
