@@ -2,16 +2,12 @@ import time
 import os
 import sys
 import sqlite3
-import queue
-from multiprocessing import Pool, Process
+import multiprocessing #import Pool, Process, Queue
 from math import factorial 
 
 # Globals
 cardtypes = []
 goodhands = []
-queue_total = 0
-num_calc_processes = 2
-
 
 # Run-time constants
 dbname = 'rainbow.sqlite3'
@@ -58,7 +54,7 @@ if dredge_configuration == 0:
 		[1, 0, 0, 0, 1, 0, 1, 0, 1, 0]]
 
 
-else if dredge_configuration == 1:
+elif dredge_configuration == 1:
 	dbname = "mckeown.sqlite3"
 	cardtypes = [
 		["Dredger", 8, 12],
@@ -95,7 +91,7 @@ else if dredge_configuration == 1:
 
 		#goodhands = ["AABC", "ABCI", "ABCJ" "ACEI", "ACEJ", "ACFI", "ACFJ", "ADGII","ADGIJ", "ADGIK", "ADGJK", "ABDII", "ABDIJ", "ABDIK", "ABDJK", "ADEII", "ADEIJ", "ADEIK", "ADEJK", "ADFII", "ADFIJ", "ADFIK", "ADFJK", "ADHII", "ADHIJ", "ADHIK", "ADHJK", "ABBI", "ABBJ", "ABEI", "ABEJ", "ABFI", "ABFJ", "ABHI", "ABHJ", "ABEI", "ABEJ", "AEEI", "AEEJ", "AEFI", "AEFJ", "AEHI", "AEHJ", "AEHH", "AEEH", "AEFH", "ABGI", "ABGJ", "AEGI", "AEGJ"]
 
-else if dredge_configuration == 2:
+elif dredge_configuration == 2:
 	dbname = "mckeown2.sqlite3"
 	cardtypes = [
 		["Dredger", 8, 12],
@@ -150,22 +146,22 @@ def ProcessIO(ioqueue):
 
 	count = 0
 	bestperc = 0.0
-	global queue_total
 
 	while True:
-		while queue_total == 0:
-			time.sleep(1)
-		if count = queue_total:
-			return count
+		if ioqueue.empty():
+			time.sleep(10)
+			if count == 0:
+				continue
+			if ioqueue.empty():
+				return count
 		temp = ioqueue.get(True)
 		count += 1
 		deck = temp[0]
 		perc = temp[1]
 		if perc > bestperc:
 			bestperc = perc
-			print(deck, perc, count, queue_total)
+			print(deck, perc, count)
 		SQLLogDeck(curs, conn, deck, perc)
-	while
 
 # Modified range function, because including the actual max you want is handy.
 def ranged(x, y):
@@ -307,30 +303,30 @@ def LookupDeck(deck):
 		SQLLogDeck(curs, conn, deck, perc)
 		LookupDeck(deck)
 
-def ProcessDeckCheck(deck, ioqueue):
-	result = deckCheck(deck)
-	ioqueue.put_nowait((deck, perc))
+def ProcessDeckCheck(deck):
+	perc = deckCheck(deck)
+	ProcessDeckCheck.ioqueue.put_nowait((deck, perc))
+
+def ProcessDeckCheck_init(ioqueue):
+	ProcessDeckCheck.ioqueue = ioqueue
 
 # Main
 if len(sys.argv) < 2:
 	WipeoutDB()
 
-
-	count = 0
-	bestperc = 0.0
-
 	# Set up the I/O Thread. Necessary because all Sqlite3 stuff should be in same thread
-	ioqueue = queue.Queue()
-	ioprocess = Process(target=ProcessIO, args=(ioqueue))
+	ioqueue = multiprocessing.Queue()
+	ioprocess = multiprocessing.Process(target=ProcessIO, args=(ioqueue,))
 	ioprocess.start()
 
 	# Set up the worker threads
-	pool = Pool(processes=num_calc_processes)
+	pool = multiprocessing.Pool(None, ProcessDeckCheck_init, [ioqueue])
 
 	for deck in generatedecks():
-		count += 1
-		print deck,count
-		pool.apply_async(ProcessDeckCheck, [deck, ioqueue])
+		#print(deck,count)
+		result = pool.apply_async(ProcessDeckCheck, [deck])
+	pool.close()
+	pool.join()
 	ioprocess.join()
 
 
