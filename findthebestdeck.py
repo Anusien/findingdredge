@@ -8,6 +8,7 @@ from math import factorial
 # Globals
 cardtypes = []
 goodhands = []
+lock = multiprocessing.Lock()
 
 # Run-time constants
 dbname = 'rainbow.sqlite3'
@@ -134,11 +135,28 @@ class Memoize: # stolen from http://code.activestate.com/recipes/52201/
 
 def SQLLogDeck(cursor, connection, deck, perc):
 	sql = "INSERT INTO decks VALUES ("
-	for card in range(len(deck)):
-		sql += str(deck[card]) + ", "
-	sql += str(perc) + ")"
+	for card in xrange(len(deck)):
+		sql = ''.join([sql, str(deck[card]) + ", "])
+	sql = ''.join([sql, str(perc) + ")"])
 	cursor.execute(sql)
 	connection.commit()
+
+def ProcessDeckCheck(deck):
+	perc = deckCheck(deck)
+	ProcessDeckCheck.ioqueue.put([deck, perc])
+
+def ProcessDeckCheck_init(ioqueue):
+	ProcessDeckCheck.ioqueue = ioqueue
+
+def ProcessDecks(ioqueue,lock):
+	lock.acquire()
+	for deck in generatedecks():
+		lock.release()
+		deck = ioqueue.get()
+		perc = deckCheck(deck)
+		ioqueue.put_nowait([deck, perc])
+		lock.acquire()
+	print("Done processing")
 
 def ProcessIO(ioqueue):
 	conn = sqlite3.connect(dbname)
@@ -147,12 +165,13 @@ def ProcessIO(ioqueue):
 	count = 0
 	bestperc = 0.0
 
-	while True:
+	while 1:
 		if ioqueue.empty():
 			time.sleep(10)
 			if count == 0:
 				continue
 			if ioqueue.empty():
+				print("Completed ",count," decks")
 				return count
 		temp = ioqueue.get(True)
 		count += 1
@@ -163,9 +182,9 @@ def ProcessIO(ioqueue):
 			print(deck, perc, count)
 		SQLLogDeck(curs, conn, deck, perc)
 
-# Modified range function, because including the actual max you want is handy.
+# Modified xrange function, because including the actual max you want is handy.
 def ranged(x, y):
-	return range(x, y + 1)
+	return xrange(x, y + 1)
 
 def generatedecks():
 	looping = 1
@@ -176,7 +195,7 @@ def generatedecks():
 			yield list(deck) 
 		
 		deck[0] += 1
-		for i in range(len(cardtypes) - 1):
+		for i in xrange(len(cardtypes) - 1):
 			if deck[i] > cardtypes[i][2]:
 				deck[i] = cardtypes[i][1]
 				deck[i+1] += 1
@@ -205,13 +224,13 @@ def probn(decksize, copies, minC, maxC, hand):
 	looping = 1
 	while (looping == 1):
 		numerator = 1.0
-		for i in range(n):
+		for i in xrange(n):
 			numerator = numerator * comb(copies[i],tempMin[i])
 		numerator = numerator * comb(remDeck,(hand - sum(tempMin)))
 		res = res + (numerator/denominator)
 		#looping logic
 		if(n > 2):
-			for j in range(n):
+			for j in xrange(n):
 				if((tempMin[j] == maxC[j]) or (sum(tempMin) == hand)):
 					tempMin[j] = minC[j]
 					if (j == (n-1)):
@@ -235,7 +254,7 @@ def deckCheck(deck):
 			#check if hand is 'good'
 			for goodhand in goodhands:
 				good = 1
-				for i in range(len(cardtypes)):
+				for i in xrange(len(cardtypes)):
 					if (hand[i] < goodhand[i]):
 						good = 0
 						break
@@ -243,7 +262,7 @@ def deckCheck(deck):
 					p = p + probn(sum(deck),deck,hand,hand,h)
 					break
 			#looping logic
-			for j in range(len(cardtypes)):
+			for j in xrange(len(cardtypes)):
 				if ((hand[j] == deck[j]) or (sum(hand) == h)):
 						hand[j] = mins[j]
 						if(j == len(cardtypes)-1):
@@ -257,13 +276,13 @@ def deckCheck(deck):
 
 def convertStringDeckToArray(deck):
 	newdeck = [0] * len(cardtypes)
-	for c in range(len(deck)):
+	for c in xrange(len(deck)):
 		newdeck[ord(deck[c])-ord('A')] += 1
 	return newdeck
 
 def convertArrayDeckToString(listofints):
 	deck = ""
-	for c in range(len(listofints)):
+	for c in xrange(len(listofints)):
 		deck += string.uppercase[c]*int(listofints[c])
 	return deck
 
@@ -276,10 +295,11 @@ def WipeoutDB():
 		pass
 	sql = "CREATE TABLE DECKS ("
 	for card in cardtypes:
-		sql += str(card[0])
-		sql += " int, "
-	sql += "perc float)"
+		sql = ''.join([sql, str(card[0]), " int, "])
+	sql = ''.join([sql, "perc float)"])
 	curs.execute(sql)
+	conn.commit()
+	conn.close()
 
 # Check the database for a deck. If it exists, return it.
 # Otherwise calculate it and store in DB
@@ -287,12 +307,10 @@ def LookupDeck(deck):
 	conn = sqlite3.connect(dbname)
 	curs = conn.cursor()
 	sql = "SELECT * FROM decks WHERE "
-	for i in range(len(deck)):
+	for i in xrange(len(deck)):
 		if i != 0:
-			sql += " and "
-		sql += str(cardtypes[i][0])
-		sql += " = "
-		sql += str(deck[i])
+			sql = ''.join([sql, " and "])
+		sql = ''.join([sql, str(cardtypes[i][0]), " = ", str(deck[i])])
 	curs.execute(sql)
 	results = curs.fetchall()
 	if results:
@@ -302,15 +320,8 @@ def LookupDeck(deck):
 		perc = deckCheck(deck)
 		SQLLogDeck(curs, conn, deck, perc)
 		LookupDeck(deck)
+	conn.close()
 
-def ProcessDeckCheck(deck):
-	perc = deckCheck(deck)
-	ProcessDeckCheck.ioqueue.put_nowait((deck, perc))
-
-def ProcessDeckCheck_init(ioqueue):
-	ProcessDeckCheck.ioqueue = ioqueue
-
-# Main
 if len(sys.argv) < 2:
 	WipeoutDB()
 
@@ -319,12 +330,25 @@ if len(sys.argv) < 2:
 	ioprocess = multiprocessing.Process(target=ProcessIO, args=(ioqueue,))
 	ioprocess.start()
 
-	# Set up the worker threads
+	#for i in xrange(multiprocessing.cpu_count()):
+	#	deckprocess = multiprocessing.Process(target=ProcessDecks, args=(ioqueue,lock,))
+
 	pool = multiprocessing.Pool(None, ProcessDeckCheck_init, [ioqueue])
 
+	i = 0
+	results = []
 	for deck in generatedecks():
-		#print(deck,count)
+
 		result = pool.apply_async(ProcessDeckCheck, [deck])
+		results.append(result)
+		i += 1
+
+		if i == multiprocessing.cpu_count():
+			for process in xrange(multiprocessing.cpu_count()):
+				results[process].get()
+			i = 0
+			results = []
+
 	pool.close()
 	pool.join()
 	ioprocess.join()
