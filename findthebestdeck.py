@@ -22,19 +22,20 @@ if dredge_configuration == 0:
 	cardtypes = [
 		["Dredger", 12, 12],
 		["Faithless_Looting", 4, 4],
-		["Lion_s_Eye_Diamond", 4, 4],
+		["Lion_s_Eye_Diamond", 0, 4],
 		["Putrid_Imp_Cabal_Therapy", 4, 8],
 		["Careful_Study", 4, 4],
-		["Breakthrough", 4, 4],
+		["Breakthrough", 0, 4],
 		["Winds_of_Change", 0, 0],
 		["Cephalid_Coliseum", 4, 4],
-		["Rainbow_Land", 8, 12],
-		["Win_Condition", 12, 17],
+		["Rainbow_Land", 12, 16],
+		["Win_Condition", 12, 12],
 		["Street_Wraith", 0, 4]]
 
-	#goodhands = ["AABC", "ABCI", "ACEI", "ACFI", "ABDI", "ADEI", "ADFI", "ADHI", "ABBI", "ABEI", "ABFI", "ABHI", "ABEI", "AEEI", "AEFI", "AEHI", "AEHH", "AEEH", "AEFH", "ABGI", "ADGI", "AEGI"]
 	goodhands = [
 		[2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+		[1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0],
+		[1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0],
 		[1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0],
 		[1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0],
 		[1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
@@ -273,7 +274,7 @@ def deckCheck(deck):
 	hand = list(mins)
 	mulledTo = 1
 	final = 0
-	for h in [7, 6, 5]:
+	for h in [7, 6, 5, 4]:
 		p = 0
 		looping = 1
 		while(looping == 1):
@@ -368,28 +369,17 @@ if len(sys.argv) < 2:
 	curs = conn.cursor()
 	for deck in generatedecks():
 		result = pool.apply_async(ProcessDeckCheck, [deck])
-		#result = SingleProcessDeckCheck(deck)
 		results.append(result)
 		i += 1
 
 		if i == numcpus:
 			for process in xrange(numcpus):
 				results.pop().get()
-				#perc = results.pop()
-				#count += 1
-				#if perc > bestperc:
-				#	bestperc = perc
-				#	print(deck, perc, count)
-				#SQLLogDeck(curs, conn, deck, perc)
 			i = 0
 			results = []
 
 	for j in xrange(i):
 		results.pop().get()
-		#if perc > bestperc:
-		#	bestperc = perc
-		#	print(deck, perc, count)
-		#SQLLogDeck(curs, conn, deck, perc)
 	pool.close()
 	pool.join()
 	ioprocess.join()
