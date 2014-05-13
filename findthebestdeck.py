@@ -2,57 +2,65 @@ import time
 import os
 import sys
 import sqlite3
-import multiprocessing #import Pool, Process, Queue
+import multiprocessing 
+import multiprocessing.queues
 from math import factorial 
 
 # Globals
 cardtypes = []
 goodhands = []
-lock = multiprocessing.Lock()
+numcardtypes = 0
 
 # Run-time constants
 dbname = 'rainbow.sqlite3'
-dredge_configuration = 1
+dredge_configuration = 0
 
 # Set up the set of cards we could use
 # ["Card Name", Min, Max]
 if dredge_configuration == 0:
 	dbname = "rainbow.sqlite3"
 	cardtypes = [
-		["Dredger", 8, 12],
-		["Faithless_Looting", 0, 4],
-		["Lion_s_Eye Diamond", 0, 4],
-		["Putrid_Imp_Cabal_Therapy_Tireless Tribe", 2, 12],
-		["Careful_Study_Hapless_Researcher", 0, 8],
-		["Breakthrough", 0, 4],
-		["Winds_of_Change", 0, 4],
-		["Cephalid_Coliseum", 0, 4],
-		["Rainbow_Land", 8, 16],
-		["Win_Condition", 12, 15]]
+		["Dredger", 12, 12],
+		["Faithless_Looting", 4, 4],
+		["Lion_s_Eye_Diamond", 4, 4],
+		["Putrid_Imp_Cabal_Therapy", 4, 8],
+		["Careful_Study", 4, 4],
+		["Breakthrough", 4, 4],
+		["Winds_of_Change", 0, 0],
+		["Cephalid_Coliseum", 4, 4],
+		["Rainbow_Land", 8, 12],
+		["Win_Condition", 12, 17],
+		["Street_Wraith", 0, 4]]
 
 	#goodhands = ["AABC", "ABCI", "ACEI", "ACFI", "ABDI", "ADEI", "ADFI", "ADHI", "ABBI", "ABEI", "ABFI", "ABHI", "ABEI", "AEEI", "AEFI", "AEHI", "AEHH", "AEEH", "AEFH", "ABGI", "ADGI", "AEGI"]
-	goodhands = [[2, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-		[1, 1, 1, 0, 0, 0, 0, 0, 1, 0],
-		[1, 0, 1, 0, 1, 0, 0, 0, 1, 0],
-		[1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
-		[1, 1, 0, 1, 0, 0, 0, 0, 1, 0],
-		[1, 0, 0, 1, 1, 0, 0, 0, 1, 0],
-		[1, 0, 0, 1, 0, 1, 0, 0, 1, 0],
-		[1, 0, 0, 1, 0, 0, 0, 1, 1, 0],
-		[1, 2, 0, 0, 0, 0, 0, 0, 1, 0],
-		[1, 1, 0, 0, 1, 0, 0, 0, 1, 0],
-		[1, 1, 0, 0, 0, 1, 0, 0, 1, 0],
-		[1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
-		[1, 1, 0, 0, 1, 0, 0, 0, 1, 0],
-		[1, 0, 0, 0, 2, 0, 0, 0, 1, 0],
-		[1, 0, 0, 0, 1, 1, 0, 0, 1, 0],
-		[1, 0, 0, 0, 1, 0, 0, 1, 1, 0],
-		[1, 0, 0, 0, 1, 0, 0, 2, 0, 0],
-		[1, 0, 0, 0, 2, 0, 0, 1, 0, 0],
-		[1, 0, 0, 0, 1, 1, 0, 1, 0, 0],
-		[1, 1, 0, 0, 0, 0, 1, 0, 1, 0],
-		[1, 0, 0, 1, 0, 0, 1, 0, 1, 0],
-		[1, 0, 0, 0, 1, 0, 1, 0, 1, 0]]
+	goodhands = [
+		[2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+		[1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0],
+		[1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0],
+		[1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
+		[1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0],
+		[1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0],
+		[1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0],
+		[1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0],
+		[1, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+		[1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+		[1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+		[1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0],
+		[1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0],
+		[1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0],
+		[1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+		[1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0],
+		[1, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0],
+		[1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0],
+		[1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0],
+		[1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
+		[1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0],
+		[1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+		[1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+		[1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+		[1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1],
+		[1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1]
+		]
 
 
 elif dredge_configuration == 1:
@@ -62,13 +70,13 @@ elif dredge_configuration == 1:
 		["Faithless_Looting", 0, 4],
 		["Lion_s_Eye_Diamond", 0, 4],
 		["Putrid_Imp_Cabal_Therapy", 2, 8],
-		["Careful_Study_Hapless_Researcher", 0, 8],
+		["Careful_Study", 0, 4],
 		["Breakthrough", 0, 4],
 		["Winds_of_Change", 0, 4],
 		["Cephalid_Coliseum", 0, 4],
 		["Fetchland", 0, 8],
 		["Volcanic_Island", 1, 4],
-		["Bayou", 1, 4],
+		["Bayou", 1, 2],
 		["Win_Condition", 12, 17]]
 
 	goodhands = [
@@ -98,15 +106,15 @@ elif dredge_configuration == 2:
 		["Dredger", 8, 12],
 		["Faithless_Looting", 0, 4],
 		["Lion_s_Eye_Diamond", 0, 4],
-		["Putrid_Imp_Cabal_Therapy", 2, 8],
-		["Careful_Study_Hapless_Researcher", 0, 8],
+		["Hapless Researcher", 0, 4],
+		["Careful_Study", 0, 4],
 		["Breakthrough", 0, 4],
 		["Winds_of_Change", 0, 4],
 		["Cephalid_Coliseum", 0, 4],
 		["Fetchland", 0, 8],
-		["Volcanic_Island", 1, 4],
+		["Volcanic_Island", 1, 8],
 		["Bayou", 0, 0],
-		["Win_Condition", 12, 17]]
+		["Win_Condition", 14, 19]]
 
 	goodhands = [
 		[2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0], [2, 1, 2, 0, 1, 0, 0, 0, 1, 1, 0, 0],
@@ -119,7 +127,13 @@ elif dredge_configuration == 2:
 		[1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0], [1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
 		[1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0], [1, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0], [1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0],
 		[1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0], [1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0],
+		[1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0], [1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
+		[1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0], [1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0],
+		[1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0], [1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0],
+		[1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0], [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
 		[1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0]]
+
+numcardtypes = len(cardtypes)
 
 class Memoize: # stolen from http://code.activestate.com/recipes/52201/
 	"""Memoize(fn) - an instance which acts like fn but memoizes its arguments
@@ -139,24 +153,29 @@ def SQLLogDeck(cursor, connection, deck, perc):
 		sql = ''.join([sql, str(deck[card]) + ", "])
 	sql = ''.join([sql, str(perc) + ")"])
 	cursor.execute(sql)
-	connection.commit()
+	success = 0
+	while not success:
+		try:
+			connection.commit()
+			success = 1
+			break
+		except sqlite3.OperationalError:
+			pass
 
 def ProcessDeckCheck(deck):
 	perc = deckCheck(deck)
 	ProcessDeckCheck.ioqueue.put([deck, perc])
+	return perc
 
 def ProcessDeckCheck_init(ioqueue):
 	ProcessDeckCheck.ioqueue = ioqueue
+	numcardtypes = len(cardtypes)
 
-def ProcessDecks(ioqueue,lock):
-	lock.acquire()
-	for deck in generatedecks():
-		lock.release()
-		deck = ioqueue.get()
-		perc = deckCheck(deck)
-		ioqueue.put_nowait([deck, perc])
-		lock.acquire()
-	print("Done processing")
+
+def SingleProcessDeckCheck(deck):
+	perc = deckCheck(deck)
+	return perc
+
 
 def ProcessIO(ioqueue):
 	conn = sqlite3.connect(dbname)
@@ -167,13 +186,13 @@ def ProcessIO(ioqueue):
 
 	while 1:
 		if ioqueue.empty():
-			time.sleep(10)
+			time.sleep(5)
 			if count == 0:
 				continue
 			if ioqueue.empty():
 				print("Completed ",count," decks")
 				return count
-		temp = ioqueue.get(True)
+		temp = ioqueue.get()
 		count += 1
 		deck = temp[0]
 		perc = temp[1]
@@ -188,18 +207,22 @@ def ranged(x, y):
 
 def generatedecks():
 	looping = 1
+	localnumcardtypes = numcardtypes
 	deck = [c[1] for c in cardtypes]
+	decksum = sum(deck)
 	
 	while looping:
-		if sum(deck) == 60:
+		if decksum == 60:
 			yield list(deck) 
 		
 		deck[0] += 1
-		for i in xrange(len(cardtypes) - 1):
+		decksum += 1
+		for i in xrange(localnumcardtypes - 1):
 			if deck[i] > cardtypes[i][2]:
 				deck[i] = cardtypes[i][1]
 				deck[i+1] += 1
-				if deck[len(cardtypes)-1] > cardtypes[len(cardtypes)-1][2]:
+				decksum -= cardtypes[i][2] - cardtypes[i][1]
+				if deck[localnumcardtypes-1] > cardtypes[localnumcardtypes-1][2]:
 					looping = 0
 					break
 			else:
@@ -213,6 +236,8 @@ def comb(n, k):
 			return 1
 		else:
 			return ((factorial(n))/((factorial(k))*(factorial(n-k))))
+factorial = Memoize(factorial)
+comb = Memoize(comb)
 
 #prob ABNNNNN = (A C copies(A) * B C copies(B) * N C copies(N) over 7 C decksize
 def probn(decksize, copies, minC, maxC, hand):
@@ -242,40 +267,41 @@ def probn(decksize, copies, minC, maxC, hand):
 	return res
 
 def deckCheck(deck):
-	mins = [0] * len(cardtypes)
+	localnumcardtypes = numcardtypes
+	mins = [0] * localnumcardtypes
 	mins[0] = 1
 	hand = list(mins)
 	mulledTo = 1
 	final = 0
-	for h in [7, 6, 5, 4]:
+	for h in [7, 6, 5]:
 		p = 0
 		looping = 1
 		while(looping == 1):
 			#check if hand is 'good'
 			for goodhand in goodhands:
 				good = 1
-				for i in xrange(len(cardtypes)):
+				for i in xrange(localnumcardtypes):
 					if (hand[i] < goodhand[i]):
 						good = 0
 						break
 				if (good == 1):
-					p = p + probn(sum(deck),deck,hand,hand,h)
+					p += probn(sum(deck),deck,hand,hand,h)
 					break
 			#looping logic
-			for j in xrange(len(cardtypes)):
+			for j in xrange(localnumcardtypes):
 				if ((hand[j] == deck[j]) or (sum(hand) == h)):
 						hand[j] = mins[j]
-						if(j == len(cardtypes)-1):
+						if(j == localnumcardtypes - 1):
 							looping = 0
 				else:
 					hand[j] += 1
 					break
-		final = final + mulledTo * p
+		final += mulledTo * p
 		mulledTo = 1 - final
 	return final
 
 def convertStringDeckToArray(deck):
-	newdeck = [0] * len(cardtypes)
+	newdeck = [0] * numcardtypes
 	for c in xrange(len(deck)):
 		newdeck[ord(deck[c])-ord('A')] += 1
 	return newdeck
@@ -291,6 +317,7 @@ def WipeoutDB():
 	curs = conn.cursor()
 	try:
 		curs.execute('''DROP TABLE decks''')
+		conn.commit()
 	except:
 		pass
 	sql = "CREATE TABLE DECKS ("
@@ -322,33 +349,47 @@ def LookupDeck(deck):
 		LookupDeck(deck)
 	conn.close()
 
+
 if len(sys.argv) < 2:
 	WipeoutDB()
 
 	# Set up the I/O Thread. Necessary because all Sqlite3 stuff should be in same thread
-	ioqueue = multiprocessing.Queue()
+	ioqueue = multiprocessing.queues.SimpleQueue()
 	ioprocess = multiprocessing.Process(target=ProcessIO, args=(ioqueue,))
 	ioprocess.start()
 
-	#for i in xrange(multiprocessing.cpu_count()):
-	#	deckprocess = multiprocessing.Process(target=ProcessDecks, args=(ioqueue,lock,))
 
 	pool = multiprocessing.Pool(None, ProcessDeckCheck_init, [ioqueue])
 
 	i = 0
 	results = []
+	numcpus = multiprocessing.cpu_count()
+	conn = sqlite3.connect(dbname)
+	curs = conn.cursor()
 	for deck in generatedecks():
-
 		result = pool.apply_async(ProcessDeckCheck, [deck])
+		#result = SingleProcessDeckCheck(deck)
 		results.append(result)
 		i += 1
 
-		if i == multiprocessing.cpu_count():
-			for process in xrange(multiprocessing.cpu_count()):
-				results[process].get()
+		if i == numcpus:
+			for process in xrange(numcpus):
+				results.pop().get()
+				#perc = results.pop()
+				#count += 1
+				#if perc > bestperc:
+				#	bestperc = perc
+				#	print(deck, perc, count)
+				#SQLLogDeck(curs, conn, deck, perc)
 			i = 0
 			results = []
 
+	for j in xrange(i):
+		results.pop().get()
+		#if perc > bestperc:
+		#	bestperc = perc
+		#	print(deck, perc, count)
+		#SQLLogDeck(curs, conn, deck, perc)
 	pool.close()
 	pool.join()
 	ioprocess.join()
