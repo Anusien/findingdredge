@@ -1,165 +1,46 @@
-import time
-import os
-import sys
-import sqlite3
-import multiprocessing
-import multiprocessing.queues
 from math import factorial
+import json
+import multiprocessing.queues
+import sqlite3
+import sys
+import time
 
 # Globals
 cardtypes = []
 goodhands = []
 numcardtypes = 0
+cardtypes_map = dict()
+
+json_filename = "dredge.json"
+
+with open(json_filename) as json_file:
+    json_data = json.load(json_file)
+    i = 0
+    for cardtype in json_data["cards"]:
+        identifier = cardtype["id"]
+        name = cardtype["name"]
+        minimum = int(cardtype.get("minimum", "0"))
+        maximum = int(cardtype.get("maximum", "4"))
+
+        if identifier in cardtypes_map:
+            raise ValueError("Duplicate identifier " + identifier)
+
+        cardtypes.append([name, minimum, maximum])
+        cardtypes_map[identifier] = i
+        i += 1
+        numcardtypes = len(cardtypes)
+
+    for hand in json_data["hands"]:
+        goodhand = [0] * numcardtypes
+        for card, number in hand.items():
+            if number < 0:
+                raise ValueError("Illegal hand requiring " + str(number) + " of " + card)
+            index = cardtypes_map[card]
+            goodhand[index] = number
+        goodhands.append(goodhand)
 
 # Run-time constants
-dbname = 'rainbow.sqlite3'
-dredge_configuration = 0
-
-# Set up the set of cards we could use
-# ["Card Name", Min, Max]
-if dredge_configuration == 0:
-    dbname = "rainbow.sqlite3"
-    cardtypes = [
-        ["Dredger", 12, 12],
-        ["Faithless_Looting", 4, 4],
-        ["Lion_s_Eye_Diamond", 0, 4],
-        ["Putrid_Imp_Cabal_Therapy", 4, 8],
-        ["Careful_Study", 4, 4],
-        ["Breakthrough", 0, 4],
-        ["Winds_of_Change", 0, 0],
-        ["Cephalid_Coliseum", 4, 4],
-        ["Rainbow_Land", 12, 16],
-        ["Win_Condition", 12, 12],
-        ["Street_Wraith", 0, 4]]
-
-    goodhands = [
-        [2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0],
-        [1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0],
-        [1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0],
-        [1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0],
-        [1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
-        [1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0],
-        [1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0],
-        [1, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-        [1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-        [1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
-        [1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0],
-        [1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0],
-        [1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0],
-        [1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0],
-        [1, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0],
-        [1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0],
-        [1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0],
-        [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
-        [1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0],
-        [1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-        [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-        [1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-        [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1],
-        [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1]
-    ]
-
-
-elif dredge_configuration == 1:
-    dbname = "mckeown.sqlite3"
-    cardtypes = [
-        ["Dredger", 8, 12],
-        ["Faithless_Looting", 0, 4],
-        ["Lion_s_Eye_Diamond", 0, 4],
-        ["Putrid_Imp_Cabal_Therapy", 2, 8],
-        ["Careful_Study", 0, 4],
-        ["Breakthrough", 0, 4],
-        ["Winds_of_Change", 0, 4],
-        ["Cephalid_Coliseum", 0, 4],
-        ["Fetchland", 0, 8],
-        ["Volcanic_Island", 1, 4],
-        ["Bayou", 1, 2],
-        ["Win_Condition", 12, 17]]
-
-    goodhands = [
-        [2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [2, 1, 2, 0, 1, 0, 0, 0, 1, 1, 0, 0],
-        [1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0], [1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-        [1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 1, 0, 0, 1, 0, 2, 0, 0, 0], [1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0],
-        [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0],
-        [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0], [1, 1, 0, 1, 0, 0, 0, 0, 2, 0, 0, 0],
-        [1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0],
-        [1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0], [1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0],
-        [1, 0, 0, 1, 1, 0, 0, 0, 2, 0, 0, 0],
-        [1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0], [1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0],
-        [1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0],
-        [1, 0, 0, 1, 0, 1, 0, 0, 2, 0, 0, 0], [1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0],
-        [1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0],
-        [1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0], [1, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 0],
-        [1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0],
-        [1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0], [1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0],
-        [1, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [1, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-        [1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
-        [1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0], [1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-        [1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
-        [1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-        [1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0], [1, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0],
-        [1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0],
-        [1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
-        [1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0], [1, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0],
-        [1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0],
-        [1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0], [1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0],
-        [1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0],
-        [1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0]]
-
-    # goodhands = ["AABC", "ABCI", "ABCJ" "ACEI", "ACEJ", "ACFI", "ACFJ", "ADGII","ADGIJ", "ADGIK", "ADGJK", "ABDII", "ABDIJ", "ABDIK", "ABDJK", "ADEII", "ADEIJ", "ADEIK", "ADEJK", "ADFII", "ADFIJ", "ADFIK", "ADFJK", "ADHII", "ADHIJ", "ADHIK", "ADHJK", "ABBI", "ABBJ", "ABEI", "ABEJ", "ABFI", "ABFJ", "ABHI", "ABHJ", "ABEI", "ABEJ", "AEEI", "AEEJ", "AEFI", "AEFJ", "AEHI", "AEHJ", "AEHH", "AEEH", "AEFH", "ABGI", "ABGJ", "AEGI", "AEGJ"]
-
-elif dredge_configuration == 2:
-    dbname = "mckeown2.sqlite3"
-    cardtypes = [
-        ["Dredger", 8, 12],
-        ["Faithless_Looting", 0, 4],
-        ["Lion_s_Eye_Diamond", 0, 4],
-        ["Hapless Researcher", 0, 4],
-        ["Careful_Study", 0, 4],
-        ["Breakthrough", 0, 4],
-        ["Winds_of_Change", 0, 4],
-        ["Cephalid_Coliseum", 0, 4],
-        ["Fetchland", 0, 8],
-        ["Volcanic_Island", 1, 8],
-        ["Bayou", 0, 0],
-        ["Win_Condition", 14, 19]]
-
-    goodhands = [
-        [2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [2, 1, 2, 0, 1, 0, 0, 0, 1, 1, 0, 0],
-        [1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0], [1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-        [1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-        [1, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [1, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-        [1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
-        [1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0], [1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-        [1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
-        [1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0], [1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-        [1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0], [1, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0],
-        [1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0],
-        [1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
-        [1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0], [1, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0],
-        [1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0],
-        [1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0], [1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0],
-        [1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0],
-        [1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0], [1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0], [1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0], [1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0],
-        [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0], [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
-        [1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0]]
-
-numcardtypes = len(cardtypes)
+dbname = json_filename + ".sqlite3"
 
 
 class Memoize:  # stolen from http://code.activestate.com/recipes/52201/
@@ -179,7 +60,7 @@ class Memoize:  # stolen from http://code.activestate.com/recipes/52201/
 
 def SQLLogDeck(cursor, connection, deck, perc):
     sql = "INSERT INTO decks VALUES ("
-    for card in xrange(len(deck)):
+    for card in range(len(deck)):
         sql = ''.join([sql, str(deck[card]) + ", "])
     sql = ''.join([sql, str(perc) + ")"])
     cursor.execute(sql)
@@ -201,12 +82,6 @@ def ProcessDeckCheck(deck):
 
 def ProcessDeckCheck_init(ioqueue):
     ProcessDeckCheck.ioqueue = ioqueue
-    numcardtypes = len(cardtypes)
-
-
-def SingleProcessDeckCheck(deck):
-    perc = deckCheck(deck)
-    return perc
 
 
 def ProcessIO(ioqueue):
@@ -234,12 +109,12 @@ def ProcessIO(ioqueue):
         SQLLogDeck(curs, conn, deck, perc)
 
 
-# Modified xrange function, because including the actual max you want is handy.
+# Modified range function, because including the actual max you want is handy.
 def ranged(x, y):
-    return xrange(x, y + 1)
+    return range(x, y + 1)
 
 
-def generatedecks():
+def generate_decks():
     looping = 1
     localnumcardtypes = numcardtypes
     deck = [c[1] for c in cardtypes]
@@ -251,7 +126,7 @@ def generatedecks():
 
         deck[0] += 1
         decksum += 1
-        for i in xrange(localnumcardtypes - 1):
+        for i in range(localnumcardtypes - 1):
             if deck[i] > cardtypes[i][2]:
                 deck[i] = cardtypes[i][1]
                 deck[i + 1] += 1
@@ -264,13 +139,13 @@ def generatedecks():
 
 
 def comb(n, k):
-    if (k > n):
+    if k > n:
         return 0
     else:
-        if (k == n):
+        if k == n:
             return 1
         else:
-            return ((factorial(n)) / ((factorial(k)) * (factorial(n - k))))
+            return (factorial(n)) / ((factorial(k)) * (factorial(n - k)))
 
 
 factorial = Memoize(factorial)
@@ -278,30 +153,30 @@ comb = Memoize(comb)
 
 
 # prob ABNNNNN = (A C copies(A) * B C copies(B) * N C copies(N) over 7 C decksize
-def probn(decksize, copies, minC, maxC, hand):
+def probn(decksize, copies, min_c, max_c, hand):
     n = len(copies)
     denominator = comb(decksize, hand) * 1.0
     res = 0.0
-    remDeck = decksize - sum(copies)
-    tempMin = list(minC)
+    rem_deck = decksize - sum(copies)
+    temp_min = list(min_c)
     looping = 1
-    while (looping == 1):
+    while looping == 1:
         numerator = 1.0
-        for i in xrange(n):
-            numerator = numerator * comb(copies[i], tempMin[i])
-        numerator = numerator * comb(remDeck, (hand - sum(tempMin)))
+        for i in range(n):
+            numerator = numerator * comb(copies[i], temp_min[i])
+        numerator = numerator * comb(rem_deck, (hand - sum(temp_min)))
         res = res + (numerator / denominator)
         # looping logic
-        if (n > 2):
-            for j in xrange(n):
-                if ((tempMin[j] == maxC[j]) or (sum(tempMin) == hand)):
-                    tempMin[j] = minC[j]
-                    if (j == (n - 1)):
+        if n > 2:
+            for j in range(n):
+                if (temp_min[j] == max_c[j]) or (sum(temp_min) == hand):
+                    temp_min[j] = min_c[j]
+                    if j == (n - 1):
                         looping = 0
                 else:
                     hand[j] += 1
-        # silly special cases cause python is silly
-        # omitted cause I'm lazy
+    # silly special cases cause python is silly
+    # omitted cause I'm lazy
     return res
 
 
@@ -310,51 +185,44 @@ def deckCheck(deck):
     mins = [0] * localnumcardtypes
     mins[0] = 1
     hand = list(mins)
-    mulledTo = 1
+    mulled_to = 1
     final = 0
     for h in [7, 6, 5, 4]:
         p = 0
         looping = 1
-        while (looping == 1):
+        while looping == 1:
             # check if hand is 'good'
             for goodhand in goodhands:
                 good = 1
-                for i in xrange(localnumcardtypes):
-                    if (hand[i] < goodhand[i]):
+                for i in range(localnumcardtypes):
+                    if hand[i] < goodhand[i]:
                         good = 0
                         break
-                if (good == 1):
+                if good == 1:
                     p += probn(sum(deck), deck, hand, hand, h)
                     break
             # looping logic
-            for j in xrange(localnumcardtypes):
-                if ((hand[j] == deck[j]) or (sum(hand) == h)):
+            for j in range(localnumcardtypes):
+                if (hand[j] == deck[j]) or (sum(hand) == h):
                     hand[j] = mins[j]
-                    if (j == localnumcardtypes - 1):
+                    if j == localnumcardtypes - 1:
                         looping = 0
                 else:
                     hand[j] += 1
                     break
-        final += mulledTo * p
-        mulledTo = 1 - final
+        final += mulled_to * p
+        mulled_to = 1 - final
     return final
 
 
 def convertStringDeckToArray(deck):
     newdeck = [0] * numcardtypes
-    for c in xrange(len(deck)):
+    for c in range(len(deck)):
         newdeck[ord(deck[c]) - ord('A')] += 1
     return newdeck
 
 
-def convertArrayDeckToString(listofints):
-    deck = ""
-    for c in xrange(len(listofints)):
-        deck += string.uppercase[c] * int(listofints[c])
-    return deck
-
-
-def WipeoutDB():
+def wipe_out_db():
     conn = sqlite3.connect(dbname)
     curs = conn.cursor()
     try:
@@ -377,7 +245,7 @@ def LookupDeck(deck):
     conn = sqlite3.connect(dbname)
     curs = conn.cursor()
     sql = "SELECT * FROM decks WHERE "
-    for i in xrange(len(deck)):
+    for i in range(len(deck)):
         if i != 0:
             sql = ''.join([sql, " and "])
         sql = ''.join([sql, str(cardtypes[i][0]), " = ", str(deck[i])])
@@ -394,10 +262,10 @@ def LookupDeck(deck):
 
 
 if len(sys.argv) < 2:
-    WipeoutDB()
+    wipe_out_db()
 
     # Set up the I/O Thread. Necessary because all Sqlite3 stuff should be in same thread
-    ioqueue = multiprocessing.queues.SimpleQueue()
+    ioqueue = multiprocessing.queues.SimpleQueue(ctx=multiprocessing.get_context())
     ioprocess = multiprocessing.Process(target=ProcessIO, args=(ioqueue,))
     ioprocess.start()
 
@@ -406,20 +274,20 @@ if len(sys.argv) < 2:
     i = 0
     results = []
     numcpus = multiprocessing.cpu_count()
-    conn = sqlite3.connect(dbname)
-    curs = conn.cursor()
-    for deck in generatedecks():
+    #    conn = sqlite3.connect(dbname)
+    #    curs = conn.cursor()
+    for deck in generate_decks():
         result = pool.apply_async(ProcessDeckCheck, [deck])
         results.append(result)
         i += 1
 
         if i == numcpus:
-            for process in xrange(numcpus):
+            for process in range(numcpus):
                 results.pop().get()
             i = 0
             results = []
 
-    for j in xrange(i):
+    for j in range(i):
         results.pop().get()
     pool.close()
     pool.join()

@@ -1,0 +1,440 @@
+{
+  "cards": [
+    {
+      "id": "dredger",
+      "name": "Dredger",
+      "minimum": 8,
+      "maximum": 12
+    },
+    {
+      "id": "led",
+      "name": "Lion_s_Eye_Diamond"
+    },
+    {
+      "id": "winds",
+      "name": "Winds_of_Change",
+      "maximum": 0
+    },
+    {
+      "id": "looting",
+      "name": "Faithless_Looting"
+    },
+    {
+      "id": "neonate",
+      "name": "Insolent_Neonate"
+    },
+    {
+      "id": "therapy",
+      "name": "Putrid_Imp_Cabal_Therapy",
+      "minimum": 4,
+      "maximum": 8
+    },
+    {
+      "id": "careful",
+      "name": "Careful_Study"
+    },
+    {
+      "id": "breakthrough",
+      "name": "Breakthrough"
+    },
+    {
+      "id": "wraith",
+      "name": "Street_Wraith",
+      "maximum": 0
+    },
+    {
+      "id": "coliseum",
+      "name": "Cephalid_Coliseum"
+    },
+    {
+      "id": "islet",
+      "name": "Fiery_Islet"
+    },
+    {
+      "id": "rainbow",
+      "name": "Rainbow_Land",
+      "minimum": 6,
+      "maximum": 12
+    },
+    {
+      "id": "junk",
+      "name": "Win_Condition",
+      "minimum": 12,
+      "maximum": 12
+    }
+  ],
+  "hands": [
+    {
+      "dredger": 2,
+      "looting": 1,
+      "led": 1
+    },
+
+
+    {
+      "dredger": 1,
+      "led": 1,
+      "careful": 1,
+      "coliseum": 1
+    },
+    {
+      "dredger": 1,
+      "led": 1,
+      "careful": 1,
+      "islet": 1
+    },
+    {
+      "dredger": 1,
+      "led": 1,
+      "careful": 1,
+      "rainbow": 1
+    },
+
+
+    {
+      "dredger": 1,
+      "led": 1,
+      "breakthrough": 1,
+      "coliseum": 1
+    },
+    {
+      "dredger": 1,
+      "led": 1,
+      "breakthrough": 1,
+      "islet": 1
+    },
+    {
+      "dredger": 1,
+      "led": 1,
+      "breakthrough": 1,
+      "rainbow": 1
+    },
+
+
+    {
+      "dredger": 1,
+      "looting": 1,
+      "led": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "led": 1,
+      "islet": 1
+    },
+
+
+    {
+      "dredger": 1,
+      "therapy": 1,
+      "rainbow": 1,
+      "islet": 2
+    },
+    {
+      "dredger": 1,
+      "therapy": 1,
+      "rainbow": 1,
+      "islet": 1,
+      "neonate": 1
+    },
+    {
+      "dredger": 1,
+      "therapy": 1,
+      "rainbow": 1,
+      "coliseum": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "therapy": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "therapy": 1,
+      "careful": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "therapy": 1,
+      "breakthrough": 1,
+      "rainbow": 1
+    },
+
+
+    {
+      "dredger": 1,
+      "looting": 2,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 2,
+      "islet": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "careful": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "careful": 1,
+      "islet": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "breakthrough": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "breakthrough": 1,
+      "islet": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "coliseum": 1,
+      "rainbow": 1
+    },
+
+    {
+      "dredger": 1,
+      "looting": 1,
+      "islet": 2,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "islet": 1,
+      "coliseum": 1
+    },
+
+    {
+      "dredger": 1,
+      "careful": 2,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 2,
+      "coliseum": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 2,
+      "islet": 1
+    },
+
+    {
+      "dredger": 1,
+      "careful": 1,
+      "breakthrough": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "breakthrough": 1,
+      "coliseum": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "breakthrough": 1,
+      "islet": 1
+    },
+
+    {
+      "dredger": 1,
+      "careful": 1,
+      "coliseum": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "coliseum": 2
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "islet": 2
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "coliseum": 1,
+      "islet": 1
+    },
+
+    {
+      "dredger": 1,
+      "looting": 1,
+      "islet": 3
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "islet": 2,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "islet": 2,
+      "neonate": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "islet": 1,
+      "neonate": 1,
+      "rainbow": 1
+    },
+
+    {
+      "dredger": 1,
+      "careful": 1,
+      "islet": 3
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "islet": 2,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "islet": 2,
+      "neonate": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "islet": 1,
+      "neonate": 1,
+      "rainbow": 1
+    },
+
+    {
+      "dredger": 1,
+      "looting": 1,
+      "winds": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "winds": 1,
+      "islet": 1
+    },
+    {
+      "dredger": 1,
+      "therapy": 1,
+      "winds": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "winds": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "winds": 1,
+      "islet": 1
+    },
+
+
+
+    {
+      "dredger": 1,
+      "neonate": 2,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "neonate": 2,
+      "islet": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "neonate": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "neonate": 1,
+      "islet": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "neonate": 1,
+      "rainbow": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "neonate": 1,
+      "islet": 1
+    },
+
+    {
+      "dredger": 1,
+      "looting": 1,
+      "rainbow": 1,
+      "wraith": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "islet": 1,
+      "wraith": 1
+    },
+    {
+      "dredger": 1,
+      "looting": 1,
+      "led": 1,
+      "wraith": 1
+    },
+    {
+      "dredger": 1,
+      "therapy": 1,
+      "rainbow": 1,
+      "wraith": 2
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "coliseum": 1,
+      "wraith": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "islet": 1,
+      "wraith": 1
+    },
+    {
+      "dredger": 1,
+      "careful": 1,
+      "rainbow": 1,
+      "wraith": 1
+    }
+  ]
+}
